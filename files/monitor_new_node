@@ -1,0 +1,24 @@
+#! /bin/bash
+
+new_instance=$1
+instance_ip=$2
+
+aws ec2 wait instance-running --instance-ids $new_instance
+
+echo "The private ip for the new instance: $instance_ip"
+
+echo "Is httpd installed and ready in the new node?" >> /home/ec2-user/log_2
+
+while [[ $(ssh -i "/home/ec2-user/vockey.pem" -o "StrictHostKeyChecking no" ec2-user@$instance_ip \
+-t ps -ef 2>/home/ec2-user/log_2 | grep -v yum | grep httpd) == "" ]]
+do
+echo "$(date): Sigh, not yet ... going to sleep for 15 seconds"
+sleep 15
+done
+
+scp -i "/home/ec2-user/vockey.pem" -o "StrictHostKeyChecking no" -r /home/ec2-user/minecraft ec2-user@$instance_ip:/home/ec2-user/minecraft
+
+/home/ec2-user/status_change $new_instance $instance_ip
+
+ssh -i "/home/ec2-user/vockey.pem" -o "StrictHostKeyChecking no" ec2-user@$instance_ip "/home/ec2-user/minecraft/run"
+
